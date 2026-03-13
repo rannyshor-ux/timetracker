@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --src-dir --no-eslint --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx --version)",
+      "Bash(npx create-next-app@latest timesheet-app --typescript --tailwind --app --src-dir --no-eslint --import-alias \"@/*\" --use-npm --yes)",
+      "Bash(npm install prisma @prisma/client)",
+      "Bash(npx prisma init --datasource-provider sqlite)",
+      "Bash(npx prisma --version)",
+      "Bash(npm install --save-dev dotenv ts-node)",
+      "Bash(npx prisma migrate dev --name init)",
+      "Bash(npx prisma generate)",
+      "Bash(npm run seed)",
+      "Bash(npm install --save-dev tsx)",
+      "Bash(npx prisma migrate reset --force)",
+      "Bash(npm install prisma@5 @prisma/client@5)",
+      "Bash(npm run build)",
+      "Bash(npx prisma migrate dev --name add-estimated-hours)",
+      "Bash(npm install nodemailer)",
+      "Bash(npm install --save-dev @types/nodemailer)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm install xlsx)",
+      "Bash(powershell -Command \":*)",
+      "Bash(xargs grep -l \"Dialog\\\\|Combobox\\\\|Popover\\\\|Dropdown\")",
+      "Bash(xargs grep -l \"Dialog\\\\|Combobox\\\\|Popover\")",
+      "Bash(node -e \":*)",
+      "Bash(powershell -Command \"Get-ScheduledTask | Where-Object {$_TaskName -like ''*timesheet*'' -or $_TaskName -like ''*remind*'' -or $_TaskName -like ''*שעות*''} | Select-Object TaskName, State\")",
+      "Bash(powershell -Command \"Get-ScheduledTask | Select-Object TaskName | Where-Object { $_TaskName -match ''time|remind'' }\")",
+      "Bash(schtasks /query /fo LIST)",
+      "Bash(schtasks /create /tn \"Timesheet Daily Reminder\" /tr \"\"\"C:\\\\Users\\\\User\\\\Dropbox\\\\work\\\\CC_Projects\\\\timesheet\\\\timesheet-app\\\\remind-daily.bat\"\"\" /sc DAILY /st 08:00 /ru \"%USERNAME%\" /f)",
+      "Bash(npx tsx send-reminder.ts)",
+      "Bash(ls -d \"c:\\\\Users\\\\User\\\\Desktop\\\\Claude Code\\\\timetracker_web\\\\timesheet-app\"/*/)",
+      "Bash(npx prisma migrate dev --name add-users)"
+    ]
+  }
+}

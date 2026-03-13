@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id          Int         @id @default(autoincrement())
+  name        String
+  role        String?
+  createdAt   DateTime    @default(now())
+  timeEntries TimeEntry[]
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  name        String
+  client      String?
+  description String?
+  status      String    @default("active") // "active" | "completed" | "on-hold"
+  createdAt   DateTime  @default(now())
+  phases      Phase[]
+}
+
+model Phase {
+  id             Int         @id @default(autoincrement())
+  projectId      Int
+  name           String
+  order          Int         @default(0)
+  estimatedHours Float?
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntries    TimeEntry[]
+}
+
+model TimeEntry {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  phaseId     Int
+  date        DateTime
+  hours       Float
+  description String
+  createdAt   DateTime @default(now())
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  phase       Phase    @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      String   @default("EMPLOYEE") // "ADMIN" | "EMPLOYEE"
+  createdAt DateTime @default(now())
+}
