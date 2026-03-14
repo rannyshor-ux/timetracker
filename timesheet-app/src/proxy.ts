@@ -15,8 +15,13 @@ function getSecret() {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page and static assets
-  if (pathname.startsWith("/login") || pathname.startsWith("/_next") || pathname === "/favicon.ico") {
+  // Allow login page, auth API, and static assets
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico"
+  ) {
     return NextResponse.next();
   }
 
