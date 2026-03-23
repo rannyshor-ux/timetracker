@@ -257,10 +257,19 @@ export default function ReportsPage() {
                     value={editHours}
                     onChange={(e) => setEditHours(e.target.value)}
                     placeholder="01:30"
-                    maxLength={5}
                     className={modalInputClass}
                   />
-                  <p className="text-xs text-gray-600">שעות:דקות</p>
+                  {editHours && (() => {
+                    const parsed = hmsToDecimal(editHours);
+                    if (parsed === null || parsed <= 0) return (
+                      <p className="text-xs text-red-400">פורמט לא תקין</p>
+                    );
+                    const totalMin = Math.round(parsed * 60);
+                    const h = Math.floor(totalMin / 60);
+                    const m = totalMin % 60;
+                    const label = h > 0 && m > 0 ? `${h} שעות ו-${m} דקות` : h > 0 ? `${h} שעות` : `${m} דקות`;
+                    return <p className="text-xs text-amber-400">= {label}</p>;
+                  })()}
                 </div>
               </div>
 

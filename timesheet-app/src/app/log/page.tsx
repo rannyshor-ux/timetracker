@@ -183,6 +183,17 @@ function LogPageContent() {
                 value={hours} onChange={(e) => setHours(e.target.value)}
                 placeholder="01:30 או 1.5" className={inputClass}
               />
+              {hours && (() => {
+                const parsed = hmsToDecimal(hours);
+                if (parsed === null || parsed <= 0) return (
+                  <p className="text-xs text-red-400">פורמט לא תקין — יש להזין שע:דק (לדוגמה 00:15) או עשרוני (לדוגמה 0.25)</p>
+                );
+                const totalMin = Math.round(parsed * 60);
+                const h = Math.floor(totalMin / 60);
+                const m = totalMin % 60;
+                const label = h > 0 && m > 0 ? `${h} שעות ו-${m} דקות` : h > 0 ? `${h} שעות` : `${m} דקות`;
+                return <p className="text-xs text-amber-400">= {label}</p>;
+              })()}
               <div className="flex gap-1.5">
                 {[{ label: "+30 דק׳", val: 0.5 }, { label: "+1", val: 1 }, { label: "+2", val: 2 }].map(({ label, val }) => (
                   <button key={val} type="button" onClick={() => addHours(val)}
