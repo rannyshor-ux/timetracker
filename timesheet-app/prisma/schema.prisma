@@ -66,7 +66,7 @@ model Task {
   projectId   Int?
   assigneeId  Int?
   dueDate     DateTime?
-  status      String    @default("open") // "open" | "done"
+  status      String    @default("not_started") // "not_started" | "done" | "blocked"
   createdAt   DateTime  @default(now())
   project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignee    Employee? @relation(fields: [assigneeId], references: [id], onDelete: SetNull)

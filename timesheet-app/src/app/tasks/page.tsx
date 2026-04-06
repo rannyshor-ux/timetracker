@@ -4,14 +4,36 @@ import { useEffect, useState } from "react";
 
 type Project = { id: number; name: string };
 type Employee = { id: number; name: string };
+type TaskStatus = "not_started" | "done" | "blocked";
 type Task = {
   id: number;
   title: string;
-  status: string;
+  status: TaskStatus;
   createdAt: string;
   dueDate: string | null;
   project: { id: number; name: string } | null;
   assignee: { id: number; name: string } | null;
+};
+
+const STATUS_CONFIG: Record<TaskStatus, { label: string; badge: string; card: string; select: string }> = {
+  not_started: {
+    label: "לא התחילה",
+    badge: "bg-gray-700 text-gray-300",
+    card: "border-gray-800 hover:border-gray-700",
+    select: "bg-gray-700 text-gray-300",
+  },
+  done: {
+    label: "הושלמה",
+    badge: "bg-emerald-900/60 text-emerald-400",
+    card: "border-emerald-800/50 bg-emerald-950/20",
+    select: "bg-emerald-900/60 text-emerald-400",
+  },
+  blocked: {
+    label: "חסומה",
+    badge: "bg-red-900/60 text-red-400",
+    card: "border-red-800/50",
+    select: "bg-red-900/60 text-red-400",
+  },
 };
 
 const inputClass =
@@ -23,7 +45,7 @@ export default function TasksPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filterStatus, setFilterStatus] = useState<"all" | "open" | "done">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | TaskStatus>("all");
   const [filterProject, setFilterProject] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
 
@@ -87,7 +109,7 @@ export default function TasksPage() {
         projectId: projectId || null,
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
-        status: editing?.status ?? "open",
+        status: editing?.status ?? "not_started",
       };
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "שגיאה"); }
@@ -98,8 +120,7 @@ export default function TasksPage() {
     } finally { setSaving(false); }
   }
 
-  async function handleToggleStatus(task: Task) {
-    const newStatus = task.status === "open" ? "done" : "open";
+  async function handleStatusChange(task: Task, newStatus: TaskStatus) {
     await fetch(`/api/tasks/${task.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -130,7 +151,8 @@ export default function TasksPage() {
     return true;
   });
 
-  const openCount = tasks.filter((t) => t.status === "open").length;
+  const notStartedCount = tasks.filter((t) => t.status === "not_started").length;
+  const blockedCount = tasks.filter((t) => t.status === "blocked").length;
 
   return (
     <div className="space-y-6">
@@ -139,7 +161,11 @@ export default function TasksPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-100">משימות</h1>
           <p className="text-gray-500 text-sm mt-1">
-            {openCount > 0 ? `${openCount} משימות פתוחות` : "אין משימות פתוחות"}
+            {blockedCount > 0
+              ? `${notStartedCount} לא התחילו · ${blockedCount} חסומות`
+              : notStartedCount > 0
+              ? `${notStartedCount} משימות שלא התחילו`
+              : "כל המשימות הושלמו"}
           </p>
         </div>
         <button
@@ -226,19 +252,22 @@ export default function TasksPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
-          {(["all", "open", "done"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 text-sm transition-colors ${
-                filterStatus === s
-                  ? "bg-amber-500 text-gray-900 font-medium"
-                  : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
-              }`}
-            >
-              {s === "all" ? "הכל" : s === "open" ? "פתוחות" : "הושלמו"}
-            </button>
-          ))}
+          {(["all", "not_started", "done", "blocked"] as const).map((s) => {
+            const labels: Record<string, string> = { all: "הכל", not_started: "לא התחילה", done: "הושלמה", blocked: "חסומה" };
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`px-3 py-1.5 text-sm transition-colors ${
+                  filterStatus === s
+                    ? "bg-amber-500 text-gray-900 font-medium"
+                    : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+                }`}
+              >
+                {labels[s]}
+              </button>
+            );
+          })}
         </div>
 
         <select
@@ -269,16 +298,15 @@ export default function TasksPage() {
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">טוען...</div>
       ) : filtered.length === 0 ? (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">
-          <p>אין משימות {filterStatus === "open" ? "פתוחות" : filterStatus === "done" ? "שהושלמו" : ""}</p>
-          {filterStatus !== "done" && (
-            <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">
-              הוסף משימה ראשונה
-            </button>
-          )}
+          <p>אין משימות{filterStatus !== "all" ? ` בסטטוס "${STATUS_CONFIG[filterStatus as TaskStatus]?.label}"` : ""}</p>
+          <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">
+            הוסף משימה חדשה
+          </button>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((task) => {
+            const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.not_started;
             const isDone = task.status === "done";
             const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
             const isOverdue = dueDateObj && dueDateObj < today && !isDone;
@@ -286,27 +314,9 @@ export default function TasksPage() {
             return (
               <div
                 key={task.id}
-                className={`bg-gray-900 rounded-xl border transition-colors ${
-                  isDone ? "border-gray-800 opacity-60" : "border-gray-800 hover:border-gray-700"
-                }`}
+                className={`bg-gray-900 rounded-xl border transition-colors ${cfg.card}`}
               >
                 <div className="px-5 py-4 flex items-start gap-4">
-                  {/* Checkbox */}
-                  <button
-                    onClick={() => handleToggleStatus(task)}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                      isDone
-                        ? "bg-emerald-500 border-emerald-500 text-white"
-                        : "border-gray-600 hover:border-amber-500"
-                    }`}
-                  >
-                    {isDone && (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium leading-relaxed ${isDone ? "line-through text-gray-500" : "text-gray-100"}`}>
@@ -334,6 +344,17 @@ export default function TasksPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Status selector */}
+                  <select
+                    value={task.status}
+                    onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
+                    className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${cfg.select}`}
+                  >
+                    <option value="not_started">לא התחילה</option>
+                    <option value="done">הושלמה</option>
+                    <option value="blocked">חסומה</option>
+                  </select>
 
                   {/* Actions */}
                   <div className="flex gap-3 flex-shrink-0">
