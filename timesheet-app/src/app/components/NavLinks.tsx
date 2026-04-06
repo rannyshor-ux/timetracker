@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const allNavItems = [
   { href: "/", label: "לוח בקרה", adminOnly: false },
   { href: "/log", label: "הזנת שעות", adminOnly: false },
+  { href: "/tasks", label: "משימות", adminOnly: false },
   { href: "/reports", label: "דוחות", adminOnly: false },
   { href: "/projects", label: "פרויקטים", adminOnly: true },
   { href: "/employees", label: "עובדים", adminOnly: true },
