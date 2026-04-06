@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Project = { id: number; name: string };
+type Employee = { id: number; name: string };
 type Task = {
   id: number;
   title: string;
@@ -10,6 +11,7 @@ type Task = {
   createdAt: string;
   dueDate: string | null;
   project: { id: number; name: string } | null;
+  assignee: { id: number; name: string } | null;
 };
 
 const inputClass =
@@ -18,26 +20,31 @@ const inputClass =
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [filterStatus, setFilterStatus] = useState<"all" | "open" | "done">("all");
   const [filterProject, setFilterProject] = useState("");
+  const [filterAssignee, setFilterAssignee] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
-    const [t, p] = await Promise.all([
+    const [t, p, e] = await Promise.all([
       fetch("/api/tasks").then((r) => r.json()),
       fetch("/api/projects").then((r) => r.json()),
+      fetch("/api/employees").then((r) => r.json()),
     ]);
     setTasks(t);
     setProjects(p);
+    setEmployees(e);
     setLoading(false);
   }
 
@@ -47,6 +54,7 @@ export default function TasksPage() {
     setEditing(null);
     setTitle("");
     setProjectId("");
+    setAssigneeId("");
     setDueDate("");
     setError("");
     setShowForm(true);
@@ -56,6 +64,7 @@ export default function TasksPage() {
     setEditing(task);
     setTitle(task.title);
     setProjectId(task.project ? String(task.project.id) : "");
+    setAssigneeId(task.assignee ? String(task.assignee.id) : "");
     setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
     setError("");
     setShowForm(true);
@@ -73,7 +82,13 @@ export default function TasksPage() {
     try {
       const url = editing ? `/api/tasks/${editing.id}` : "/api/tasks";
       const method = editing ? "PUT" : "POST";
-      const body = { title, projectId: projectId || null, dueDate: dueDate || null, status: editing?.status ?? "open" };
+      const body = {
+        title,
+        projectId: projectId || null,
+        assigneeId: assigneeId || null,
+        dueDate: dueDate || null,
+        status: editing?.status ?? "open",
+      };
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "שגיאה"); }
       closeForm();
@@ -88,7 +103,13 @@ export default function TasksPage() {
     await fetch(`/api/tasks/${task.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: task.title, projectId: task.project?.id ?? null, dueDate: task.dueDate ?? null, status: newStatus }),
+      body: JSON.stringify({
+        title: task.title,
+        projectId: task.project?.id ?? null,
+        assigneeId: task.assignee?.id ?? null,
+        dueDate: task.dueDate ?? null,
+        status: newStatus,
+      }),
     });
     load();
   }
@@ -105,6 +126,7 @@ export default function TasksPage() {
   const filtered = tasks.filter((t) => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (filterProject && String(t.project?.id) !== filterProject) return false;
+    if (filterAssignee && String(t.assignee?.id) !== filterAssignee) return false;
     return true;
   });
 
@@ -146,6 +168,16 @@ export default function TasksPage() {
                   className={inputClass + " resize-none"}
                   autoFocus
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-400">שיוך לעובד (אופציונלי)</label>
+                <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputClass}>
+                  <option value="">— ללא שיוך —</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -210,6 +242,17 @@ export default function TasksPage() {
         </div>
 
         <select
+          value={filterAssignee}
+          onChange={(e) => setFilterAssignee(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
+        >
+          <option value="">כל העובדים</option>
+          {employees.map((emp) => (
+            <option key={emp.id} value={emp.id}>{emp.name}</option>
+          ))}
+        </select>
+
+        <select
           value={filterProject}
           onChange={(e) => setFilterProject(e.target.value)}
           className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
@@ -271,6 +314,11 @@ export default function TasksPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      {task.assignee && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400">
+                          {task.assignee.name}
+                        </span>
+                      )}
                       {task.project && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/50 text-blue-400">
                           {task.project.name}
@@ -289,16 +337,10 @@ export default function TasksPage() {
 
                   {/* Actions */}
                   <div className="flex gap-3 flex-shrink-0">
-                    <button
-                      onClick={() => openEdit(task)}
-                      className="text-gray-400 hover:text-gray-100 text-xs transition-colors"
-                    >
+                    <button onClick={() => openEdit(task)} className="text-gray-400 hover:text-gray-100 text-xs transition-colors">
                       עריכה
                     </button>
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="text-red-500 hover:text-red-400 text-xs transition-colors"
-                    >
+                    <button onClick={() => handleDelete(task.id)} className="text-red-500 hover:text-red-400 text-xs transition-colors">
                       מחק
                     </button>
                   </div>
