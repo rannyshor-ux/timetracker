@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type Project = { id: number; name: string };
 type Employee = { id: number; name: string };
-type TaskStatus = "not_started" | "done" | "blocked";
+type TaskStatus = "not_started" | "in_progress" | "done" | "blocked";
 type TaskPriority = "urgent" | "important" | "to_handle";
 type Task = {
   id: number;
@@ -23,6 +23,11 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: s
     card: "border-gray-800 hover:border-gray-700",
     select: "bg-gray-700 text-gray-300",
   },
+  in_progress: {
+    label: "בטיפול",
+    card: "border-blue-800/50 bg-blue-950/10",
+    select: "bg-blue-900/60 text-blue-300",
+  },
   done: {
     label: "הושלמה",
     card: "border-emerald-800/50 bg-emerald-950/20",
@@ -35,14 +40,16 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: s
   },
 };
 
-const PRIORITY_CONFIG: Record<TaskPriority, { label: string; badge: string }> = {
-  urgent:    { label: "דחוף",    badge: "bg-red-900/60 text-red-400 border border-red-700/50" },
-  important: { label: "חשוב",    badge: "bg-orange-900/60 text-orange-400 border border-orange-700/50" },
-  to_handle: { label: "לטיפול",  badge: "bg-blue-900/50 text-blue-400 border border-blue-700/50" },
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; pill: string }> = {
+  to_handle: { label: "לטיפול", pill: "bg-gray-700 text-gray-300" },
+  important:  { label: "חשוב",   pill: "bg-gray-700 text-gray-300" },
+  urgent:     { label: "דחוף",   pill: "bg-gray-700 text-gray-300" },
 };
 
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500";
+
+const optionClass = "bg-gray-800 text-gray-100";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -96,7 +103,7 @@ export default function TasksPage() {
     setProjectId(task.project ? String(task.project.id) : "");
     setAssigneeId(task.assignee ? String(task.assignee.id) : "");
     setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
-    setPriority(task.priority ?? "");
+    setPriority(task.priority ?? "to_handle");
     setError("");
     setShowForm(true);
   }
@@ -179,7 +186,7 @@ export default function TasksPage() {
     return true;
   });
 
-  const notStartedCount = tasks.filter((t) => t.status === "not_started").length;
+  const activeCount = tasks.filter((t) => t.status === "not_started" || t.status === "in_progress").length;
   const blockedCount = tasks.filter((t) => t.status === "blocked").length;
   const urgentCount = tasks.filter((t) => t.priority === "urgent" && t.status !== "done").length;
 
@@ -192,9 +199,9 @@ export default function TasksPage() {
           <p className="text-gray-500 text-sm mt-1">
             {urgentCount > 0 && <span className="text-red-400">{urgentCount} דחופות · </span>}
             {blockedCount > 0
-              ? `${notStartedCount} לא התחילו · ${blockedCount} חסומות`
-              : notStartedCount > 0
-              ? `${notStartedCount} לא התחילו`
+              ? `${activeCount} פעילות · ${blockedCount} חסומות`
+              : activeCount > 0
+              ? `${activeCount} משימות פעילות`
               : "כל המשימות הושלמו"}
           </p>
         </div>
@@ -227,21 +234,20 @@ export default function TasksPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-400">עדיפות (אופציונלי)</label>
+                <label className="block text-sm font-medium text-gray-400">עדיפות</label>
                 <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority | "")} className={inputClass}>
-                  <option value="">— ללא עדיפות —</option>
-                  <option value="urgent">דחוף</option>
-                  <option value="important">חשוב</option>
-                  <option value="to_handle">לטיפול</option>
+                  <option value="to_handle" className={optionClass}>לטיפול</option>
+                  <option value="important" className={optionClass}>חשוב</option>
+                  <option value="urgent" className={optionClass}>דחוף</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-400">שיוך לעובד (אופציונלי)</label>
                 <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className={inputClass}>
-                  <option value="">— ללא שיוך —</option>
+                  <option value="" className={optionClass}>— ללא שיוך —</option>
                   {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    <option key={emp.id} value={emp.id} className={optionClass}>{emp.name}</option>
                   ))}
                 </select>
               </div>
@@ -249,9 +255,9 @@ export default function TasksPage() {
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-400">פרויקט קשור (אופציונלי)</label>
                 <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputClass}>
-                  <option value="">— ללא פרויקט —</option>
+                  <option value="" className={optionClass}>— ללא פרויקט —</option>
                   {projects.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id} className={optionClass}>{p.name}</option>
                   ))}
                 </select>
               </div>
@@ -293,8 +299,14 @@ export default function TasksPage() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Status filter */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
-          {(["all", "not_started", "done", "blocked"] as const).map((s) => {
-            const labels: Record<string, string> = { all: "הכל", not_started: "לא התחילה", done: "הושלמה", blocked: "חסומה" };
+          {(["all", "not_started", "in_progress", "done", "blocked"] as const).map((s) => {
+            const labels: Record<string, string> = {
+              all: "הכל",
+              not_started: "לא התחילה",
+              in_progress: "בטיפול",
+              done: "הושלמה",
+              blocked: "חסומה",
+            };
             return (
               <button
                 key={s}
@@ -313,8 +325,8 @@ export default function TasksPage() {
 
         {/* Priority filter */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
-          {(["all", "urgent", "important", "to_handle"] as const).map((p) => {
-            const labels: Record<string, string> = { all: "כל עדיפות", urgent: "דחוף", important: "חשוב", to_handle: "לטיפול" };
+          {(["all", "to_handle", "important", "urgent"] as const).map((p) => {
+            const labels: Record<string, string> = { all: "כל עדיפות", to_handle: "לטיפול", important: "חשוב", urgent: "דחוף" };
             return (
               <button
                 key={p}
@@ -371,6 +383,8 @@ export default function TasksPage() {
             const isDone = task.status === "done";
             const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
             const isOverdue = dueDateObj && dueDateObj < today && !isDone;
+            const p = (task.priority ?? "to_handle") as TaskPriority;
+            const pcfg = PRIORITY_CONFIG[p] ?? PRIORITY_CONFIG.to_handle;
 
             return (
               <div
@@ -412,27 +426,22 @@ export default function TasksPage() {
                     onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
                     className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${cfg.select}`}
                   >
-                    <option value="not_started">לא התחילה</option>
-                    <option value="done">הושלמה</option>
-                    <option value="blocked">חסומה</option>
+                    <option value="not_started" className={optionClass}>לא התחילה</option>
+                    <option value="in_progress" className={optionClass}>בטיפול</option>
+                    <option value="done" className={optionClass}>הושלמה</option>
+                    <option value="blocked" className={optionClass}>חסומה</option>
                   </select>
 
                   {/* Priority selector */}
-                  {(() => {
-                    const p = task.priority ?? "to_handle";
-                    const pcfg = PRIORITY_CONFIG[p as TaskPriority] ?? PRIORITY_CONFIG.to_handle;
-                    return (
-                      <select
-                        value={p}
-                        onChange={(e) => handlePriorityChange(task, e.target.value as TaskPriority)}
-                        className={`text-xs px-2 py-1 rounded-full border font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${pcfg.badge}`}
-                      >
-                        <option value="urgent">דחוף</option>
-                        <option value="important">חשוב</option>
-                        <option value="to_handle">לטיפול</option>
-                      </select>
-                    );
-                  })()}
+                  <select
+                    value={p}
+                    onChange={(e) => handlePriorityChange(task, e.target.value as TaskPriority)}
+                    className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${pcfg.pill}`}
+                  >
+                    <option value="to_handle" className={optionClass}>לטיפול</option>
+                    <option value="important" className={optionClass}>חשוב</option>
+                    <option value="urgent" className={optionClass}>דחוף</option>
+                  </select>
 
                   {/* Actions */}
                   <div className="flex gap-3 flex-shrink-0">
