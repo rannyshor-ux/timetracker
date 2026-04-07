@@ -13,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { title, projectId, assigneeId, dueDate } = await req.json();
+  const { title, projectId, assigneeId, dueDate, priority } = await req.json();
   if (!title?.trim()) {
     return NextResponse.json({ error: "תיאור המשימה הוא שדה חובה" }, { status: 400 });
   }
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       projectId: projectId ? Number(projectId) : null,
       assigneeId: assigneeId ? Number(assigneeId) : null,
       dueDate: dueDate ? new Date(dueDate) : null,
+      priority: priority || null,
     },
     include: {
       project: { select: { id: true, name: true } },

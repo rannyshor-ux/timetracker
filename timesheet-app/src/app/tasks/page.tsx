@@ -5,35 +5,40 @@ import { useEffect, useState } from "react";
 type Project = { id: number; name: string };
 type Employee = { id: number; name: string };
 type TaskStatus = "not_started" | "done" | "blocked";
+type TaskPriority = "urgent" | "important" | "to_handle";
 type Task = {
   id: number;
   title: string;
   status: TaskStatus;
+  priority: TaskPriority | null;
   createdAt: string;
   dueDate: string | null;
   project: { id: number; name: string } | null;
   assignee: { id: number; name: string } | null;
 };
 
-const STATUS_CONFIG: Record<TaskStatus, { label: string; badge: string; card: string; select: string }> = {
+const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: string }> = {
   not_started: {
     label: "לא התחילה",
-    badge: "bg-gray-700 text-gray-300",
     card: "border-gray-800 hover:border-gray-700",
     select: "bg-gray-700 text-gray-300",
   },
   done: {
     label: "הושלמה",
-    badge: "bg-emerald-900/60 text-emerald-400",
     card: "border-emerald-800/50 bg-emerald-950/20",
     select: "bg-emerald-900/60 text-emerald-400",
   },
   blocked: {
     label: "חסומה",
-    badge: "bg-red-900/60 text-red-400",
     card: "border-red-800/50",
     select: "bg-red-900/60 text-red-400",
   },
+};
+
+const PRIORITY_CONFIG: Record<TaskPriority, { label: string; badge: string }> = {
+  urgent:    { label: "דחוף",    badge: "bg-red-900/60 text-red-400 border border-red-700/50" },
+  important: { label: "חשוב",    badge: "bg-orange-900/60 text-orange-400 border border-orange-700/50" },
+  to_handle: { label: "לטיפול",  badge: "bg-blue-900/50 text-blue-400 border border-blue-700/50" },
 };
 
 const inputClass =
@@ -46,6 +51,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
 
   const [filterStatus, setFilterStatus] = useState<"all" | TaskStatus>("all");
+  const [filterPriority, setFilterPriority] = useState<"all" | TaskPriority>("all");
   const [filterProject, setFilterProject] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
 
@@ -55,6 +61,7 @@ export default function TasksPage() {
   const [projectId, setProjectId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState<TaskPriority | "">("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -78,6 +85,7 @@ export default function TasksPage() {
     setProjectId("");
     setAssigneeId("");
     setDueDate("");
+    setPriority("");
     setError("");
     setShowForm(true);
   }
@@ -88,6 +96,7 @@ export default function TasksPage() {
     setProjectId(task.project ? String(task.project.id) : "");
     setAssigneeId(task.assignee ? String(task.assignee.id) : "");
     setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
+    setPriority(task.priority ?? "");
     setError("");
     setShowForm(true);
   }
@@ -97,7 +106,7 @@ export default function TasksPage() {
     setEditing(null);
   }
 
-  async function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!title.trim()) { setError("תיאור המשימה הוא שדה חובה"); return; }
     setSaving(true); setError("");
@@ -110,6 +119,7 @@ export default function TasksPage() {
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
         status: editing?.status ?? "not_started",
+        priority: priority || null,
       };
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "שגיאה"); }
@@ -130,6 +140,7 @@ export default function TasksPage() {
         assigneeId: task.assignee?.id ?? null,
         dueDate: task.dueDate ?? null,
         status: newStatus,
+        priority: task.priority ?? null,
       }),
     });
     load();
@@ -146,6 +157,7 @@ export default function TasksPage() {
 
   const filtered = tasks.filter((t) => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
+    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
     if (filterProject && String(t.project?.id) !== filterProject) return false;
     if (filterAssignee && String(t.assignee?.id) !== filterAssignee) return false;
     return true;
@@ -153,6 +165,7 @@ export default function TasksPage() {
 
   const notStartedCount = tasks.filter((t) => t.status === "not_started").length;
   const blockedCount = tasks.filter((t) => t.status === "blocked").length;
+  const urgentCount = tasks.filter((t) => t.priority === "urgent" && t.status !== "done").length;
 
   return (
     <div className="space-y-6">
@@ -161,10 +174,11 @@ export default function TasksPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-100">משימות</h1>
           <p className="text-gray-500 text-sm mt-1">
+            {urgentCount > 0 && <span className="text-red-400">{urgentCount} דחופות · </span>}
             {blockedCount > 0
               ? `${notStartedCount} לא התחילו · ${blockedCount} חסומות`
               : notStartedCount > 0
-              ? `${notStartedCount} משימות שלא התחילו`
+              ? `${notStartedCount} לא התחילו`
               : "כל המשימות הושלמו"}
           </p>
         </div>
@@ -194,6 +208,16 @@ export default function TasksPage() {
                   className={inputClass + " resize-none"}
                   autoFocus
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-400">עדיפות (אופציונלי)</label>
+                <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority | "")} className={inputClass}>
+                  <option value="">— ללא עדיפות —</option>
+                  <option value="urgent">דחוף</option>
+                  <option value="important">חשוב</option>
+                  <option value="to_handle">לטיפול</option>
+                </select>
               </div>
 
               <div className="space-y-1.5">
@@ -251,6 +275,7 @@ export default function TasksPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* Status filter */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
           {(["all", "not_started", "done", "blocked"] as const).map((s) => {
             const labels: Record<string, string> = { all: "הכל", not_started: "לא התחילה", done: "הושלמה", blocked: "חסומה" };
@@ -265,6 +290,26 @@ export default function TasksPage() {
                 }`}
               >
                 {labels[s]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Priority filter */}
+        <div className="flex rounded-lg overflow-hidden border border-gray-700">
+          {(["all", "urgent", "important", "to_handle"] as const).map((p) => {
+            const labels: Record<string, string> = { all: "כל עדיפות", urgent: "דחוף", important: "חשוב", to_handle: "לטיפול" };
+            return (
+              <button
+                key={p}
+                onClick={() => setFilterPriority(p)}
+                className={`px-3 py-1.5 text-sm transition-colors ${
+                  filterPriority === p
+                    ? "bg-amber-500 text-gray-900 font-medium"
+                    : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+                }`}
+              >
+                {labels[p]}
               </button>
             );
           })}
@@ -298,7 +343,7 @@ export default function TasksPage() {
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">טוען...</div>
       ) : filtered.length === 0 ? (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">
-          <p>אין משימות{filterStatus !== "all" ? ` בסטטוס "${STATUS_CONFIG[filterStatus as TaskStatus]?.label}"` : ""}</p>
+          <p>אין משימות להצגה</p>
           <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">
             הוסף משימה חדשה
           </button>
@@ -324,6 +369,11 @@ export default function TasksPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      {task.priority && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_CONFIG[task.priority].badge}`}>
+                          {PRIORITY_CONFIG[task.priority].label}
+                        </span>
+                      )}
                       {task.assignee && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400">
                           {task.assignee.name}
