@@ -85,7 +85,7 @@ export default function TasksPage() {
     setProjectId("");
     setAssigneeId("");
     setDueDate("");
-    setPriority("");
+    setPriority("to_handle");
     setError("");
     setShowForm(true);
   }
@@ -119,7 +119,7 @@ export default function TasksPage() {
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
         status: editing?.status ?? "not_started",
-        priority: priority || null,
+        priority: priority || "to_handle",
       };
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "שגיאה"); }
@@ -140,7 +140,23 @@ export default function TasksPage() {
         assigneeId: task.assignee?.id ?? null,
         dueDate: task.dueDate ?? null,
         status: newStatus,
-        priority: task.priority ?? null,
+        priority: task.priority ?? "to_handle",
+      }),
+    });
+    load();
+  }
+
+  async function handlePriorityChange(task: Task, newPriority: TaskPriority) {
+    await fetch(`/api/tasks/${task.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: task.title,
+        projectId: task.project?.id ?? null,
+        assigneeId: task.assignee?.id ?? null,
+        dueDate: task.dueDate ?? null,
+        status: task.status,
+        priority: newPriority,
       }),
     });
     load();
@@ -369,11 +385,6 @@ export default function TasksPage() {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                      {task.priority && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_CONFIG[task.priority].badge}`}>
-                          {PRIORITY_CONFIG[task.priority].label}
-                        </span>
-                      )}
                       {task.assignee && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400">
                           {task.assignee.name}
@@ -405,6 +416,23 @@ export default function TasksPage() {
                     <option value="done">הושלמה</option>
                     <option value="blocked">חסומה</option>
                   </select>
+
+                  {/* Priority selector */}
+                  {(() => {
+                    const p = task.priority ?? "to_handle";
+                    const pcfg = PRIORITY_CONFIG[p as TaskPriority] ?? PRIORITY_CONFIG.to_handle;
+                    return (
+                      <select
+                        value={p}
+                        onChange={(e) => handlePriorityChange(task, e.target.value as TaskPriority)}
+                        className={`text-xs px-2 py-1 rounded-full border font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${pcfg.badge}`}
+                      >
+                        <option value="urgent">דחוף</option>
+                        <option value="important">חשוב</option>
+                        <option value="to_handle">לטיפול</option>
+                      </select>
+                    );
+                  })()}
 
                   {/* Actions */}
                   <div className="flex gap-3 flex-shrink-0">
