@@ -106,14 +106,6 @@ export default async function DashboardPage() {
 
   const activeProjects = projects.filter((p: any) => p.status === "active");
   const totalHoursWeek = recentEntries.reduce((s: number, e: any) => s + e.hours, 0);
-  const totalHoursAll = projects
-    .flatMap((p: any) => p.phases.flatMap((ph: any) => ph.timeEntries))
-    .reduce((s: number, e: any) => s + e.hours, 0);
-
-  const totalEstimated = projects
-    .flatMap((p: any) => p.phases)
-    .filter((ph: any) => ph.estimatedHours != null)
-    .reduce((s: number, ph: any) => s + (ph.estimatedHours ?? 0), 0);
 
   return (
     <div className="space-y-8">
@@ -132,10 +124,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
         <StatCard label="שעות השבוע" value={decimalToHMS(totalHoursWeek)} unit="" />
-        <StatCard label="סה״כ שעות" value={decimalToHMS(totalHoursAll)} unit="" />
-        <StatCard label="שעות מתוכננות" value={totalEstimated > 0 ? decimalToHMS(totalEstimated) : "—"} unit="" />
         <StatCard label="פרויקטים פעילים" value={String(activeProjects.length)} unit="" />
       </div>
 
