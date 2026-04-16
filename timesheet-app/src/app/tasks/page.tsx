@@ -187,13 +187,27 @@ export default function TasksPage() {
   const threeDaysFromNow = new Date(today);
   threeDaysFromNow.setDate(today.getDate() + 3);
 
-  const filtered = tasks.filter((t) => {
-    if (filterStatus !== "all" && t.status !== filterStatus) return false;
-    if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-    if (filterProject && String(t.project?.id) !== filterProject) return false;
-    if (filterAssignee && String(t.assignee?.id) !== filterAssignee) return false;
-    return true;
-  });
+  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, important: 1, to_handle: 2 };
+
+  const filtered = tasks
+    .filter((t) => {
+      if (filterStatus !== "all" && t.status !== filterStatus) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterProject && String(t.project?.id) !== filterProject) return false;
+      if (filterAssignee && String(t.assignee?.id) !== filterAssignee) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      // 1. Priority: urgent → important → to_handle
+      const pa = PRIORITY_ORDER[a.priority ?? "to_handle"] ?? 2;
+      const pb = PRIORITY_ORDER[b.priority ?? "to_handle"] ?? 2;
+      if (pa !== pb) return pa - pb;
+
+      // 2. Due date: earlier first, no date last
+      const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return da - db;
+    });
 
   const activeCount = tasks.filter((t) => t.status === "not_started" || t.status === "in_progress").length;
   const blockedCount = tasks.filter((t) => t.status === "blocked").length;
