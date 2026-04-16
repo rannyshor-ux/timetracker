@@ -9,6 +9,7 @@ type TaskPriority = "urgent" | "important" | "to_handle";
 type Task = {
   id: number;
   title: string;
+  description: string | null;
   status: TaskStatus;
   priority: TaskPriority | null;
   createdAt: string;
@@ -41,7 +42,7 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: s
 };
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; pill: string }> = {
-  to_handle: { label: "לטיפול", pill: "bg-gray-700 text-gray-300" },
+  to_handle: { label: "לטיפול",  pill: "bg-gray-700 text-gray-300" },
   important:  { label: "חשוב",   pill: "bg-gray-700 text-gray-300" },
   urgent:     { label: "דחוף",   pill: "bg-gray-700 text-gray-300" },
 };
@@ -65,6 +66,7 @@ export default function TasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -89,6 +91,7 @@ export default function TasksPage() {
   function openNew() {
     setEditing(null);
     setTitle("");
+    setDescription("");
     setProjectId("");
     setAssigneeId("");
     setDueDate("");
@@ -100,6 +103,7 @@ export default function TasksPage() {
   function openEdit(task: Task) {
     setEditing(task);
     setTitle(task.title);
+    setDescription(task.description ?? "");
     setProjectId(task.project ? String(task.project.id) : "");
     setAssigneeId(task.assignee ? String(task.assignee.id) : "");
     setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
@@ -113,15 +117,16 @@ export default function TasksPage() {
     setEditing(null);
   }
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSave(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!title.trim()) { setError("תיאור המשימה הוא שדה חובה"); return; }
+    if (!title.trim()) { setError("כותרת המשימה היא שדה חובה"); return; }
     setSaving(true); setError("");
     try {
       const url = editing ? `/api/tasks/${editing.id}` : "/api/tasks";
       const method = editing ? "PUT" : "POST";
       const body = {
         title,
+        description: description || null,
         projectId: projectId || null,
         assigneeId: assigneeId || null,
         dueDate: dueDate || null,
@@ -143,6 +148,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: task.title,
+        description: task.description ?? null,
         projectId: task.project?.id ?? null,
         assigneeId: task.assignee?.id ?? null,
         dueDate: task.dueDate ?? null,
@@ -159,6 +165,7 @@ export default function TasksPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: task.title,
+        description: task.description ?? null,
         projectId: task.project?.id ?? null,
         assigneeId: task.assignee?.id ?? null,
         dueDate: task.dueDate ?? null,
@@ -177,6 +184,8 @@ export default function TasksPage() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const threeDaysFromNow = new Date(today);
+  threeDaysFromNow.setDate(today.getDate() + 3);
 
   const filtered = tasks.filter((t) => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
@@ -222,14 +231,25 @@ export default function TasksPage() {
             </h2>
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-400">תיאור המשימה</label>
-                <textarea
+                <label className="block text-sm font-medium text-gray-400">כותרת *</label>
+                <input
+                  type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  rows={3}
-                  placeholder="מה צריך לעשות?"
-                  className={inputClass + " resize-none"}
+                  placeholder="כותרת קצרה למשימה"
+                  className={inputClass}
                   autoFocus
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-400">תיאור (אופציונלי)</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder="פרטים נוספים על המשימה..."
+                  className={inputClass + " resize-none"}
                 />
               </div>
 
@@ -297,72 +317,42 @@ export default function TasksPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Status filter */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
           {(["all", "not_started", "in_progress", "done", "blocked"] as const).map((s) => {
             const labels: Record<string, string> = {
-              all: "הכל",
-              not_started: "לא התחילה",
-              in_progress: "בטיפול",
-              done: "הושלמה",
-              blocked: "חסומה",
+              all: "הכל", not_started: "לא התחילה", in_progress: "בטיפול", done: "הושלמה", blocked: "חסומה",
             };
             return (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                className={`px-3 py-1.5 text-sm transition-colors ${
-                  filterStatus === s
-                    ? "bg-amber-500 text-gray-900 font-medium"
-                    : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
-                }`}
-              >
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`px-3 py-1.5 text-sm transition-colors ${filterStatus === s ? "bg-amber-500 text-gray-900 font-medium" : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"}`}>
                 {labels[s]}
               </button>
             );
           })}
         </div>
 
-        {/* Priority filter */}
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
           {(["all", "to_handle", "important", "urgent"] as const).map((p) => {
             const labels: Record<string, string> = { all: "כל עדיפות", to_handle: "לטיפול", important: "חשוב", urgent: "דחוף" };
             return (
-              <button
-                key={p}
-                onClick={() => setFilterPriority(p)}
-                className={`px-3 py-1.5 text-sm transition-colors ${
-                  filterPriority === p
-                    ? "bg-amber-500 text-gray-900 font-medium"
-                    : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"
-                }`}
-              >
+              <button key={p} onClick={() => setFilterPriority(p)}
+                className={`px-3 py-1.5 text-sm transition-colors ${filterPriority === p ? "bg-amber-500 text-gray-900 font-medium" : "text-gray-400 hover:text-gray-100 hover:bg-gray-800"}`}>
                 {labels[p]}
               </button>
             );
           })}
         </div>
 
-        <select
-          value={filterAssignee}
-          onChange={(e) => setFilterAssignee(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
-        >
+        <select value={filterAssignee} onChange={(e) => setFilterAssignee(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500">
           <option value="">כל העובדים</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>{emp.name}</option>
-          ))}
+          {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
         </select>
 
-        <select
-          value={filterProject}
-          onChange={(e) => setFilterProject(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500"
-        >
+        <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}
+          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500">
           <option value="">כל הפרויקטים</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
 
@@ -372,31 +362,39 @@ export default function TasksPage() {
       ) : filtered.length === 0 ? (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">
           <p>אין משימות להצגה</p>
-          <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">
-            הוסף משימה חדשה
-          </button>
+          <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">הוסף משימה חדשה</button>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((task) => {
             const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.not_started;
             const isDone = task.status === "done";
-            const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
-            const isOverdue = dueDateObj && dueDateObj < today && !isDone;
             const p = (task.priority ?? "to_handle") as TaskPriority;
             const pcfg = PRIORITY_CONFIG[p] ?? PRIORITY_CONFIG.to_handle;
+            const isHighPriority = (p === "urgent" || p === "important") && !isDone;
+
+            const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
+            const isOverdue = dueDateObj && dueDateObj < today && !isDone;
+            const isDueSoon = dueDateObj && dueDateObj <= threeDaysFromNow && dueDateObj >= today && !isDone;
 
             return (
               <div
                 key={task.id}
-                className={`bg-gray-900 rounded-xl border transition-colors ${cfg.card}`}
+                className={`rounded-xl border transition-colors ${cfg.card} ${
+                  isHighPriority ? "bg-amber-950/30 border-amber-700/50" : "bg-gray-900"
+                }`}
               >
                 <div className="px-5 py-4 flex items-start gap-4">
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium leading-relaxed ${isDone ? "line-through text-gray-500" : "text-gray-100"}`}>
+                    <p className={`text-sm font-medium leading-relaxed ${isDone ? "line-through text-gray-500" : isHighPriority ? "text-amber-100" : "text-gray-100"}`}>
                       {task.title}
                     </p>
+                    {task.description && (
+                      <p className={`text-xs mt-0.5 leading-relaxed ${isDone ? "line-through text-gray-600" : "text-gray-400"}`}>
+                        {task.description}
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
                       {task.assignee && (
@@ -410,7 +408,7 @@ export default function TasksPage() {
                         </span>
                       )}
                       {dueDateObj && (
-                        <span className={`text-xs ${isOverdue ? "text-red-400" : "text-gray-500"}`}>
+                        <span className={`text-xs ${isOverdue || isDueSoon ? "text-red-400" : "text-gray-500"}`}>
                           {isOverdue ? "⚠ " : ""}עד {dueDateObj.toLocaleDateString("he-IL")}
                         </span>
                       )}

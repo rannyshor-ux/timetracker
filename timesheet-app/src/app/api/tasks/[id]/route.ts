@@ -6,14 +6,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { title, projectId, assigneeId, dueDate, status, priority } = await req.json();
+  const { title, description, projectId, assigneeId, dueDate, status, priority } = await req.json();
   if (!title?.trim()) {
-    return NextResponse.json({ error: "תיאור המשימה הוא שדה חובה" }, { status: 400 });
+    return NextResponse.json({ error: "כותרת המשימה היא שדה חובה" }, { status: 400 });
   }
   const task = await prisma.task.update({
     where: { id: Number(id) },
     data: {
       title: title.trim(),
+      description: description?.trim() || null,
       projectId: projectId ? Number(projectId) : null,
       assigneeId: assigneeId ? Number(assigneeId) : null,
       dueDate: dueDate ? new Date(dueDate) : null,
