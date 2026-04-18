@@ -6,7 +6,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { title, description, projectId, assigneeId, dueDate, status, priority } = await req.json();
+  const { title, description, projectId, assigneeId, dueDate, status, priority, archived } = await req.json();
   if (!title?.trim()) {
     return NextResponse.json({ error: "כותרת המשימה היא שדה חובה" }, { status: 400 });
   }
@@ -20,6 +20,7 @@ export async function PUT(
       dueDate: dueDate ? new Date(dueDate) : null,
       status: status ?? "not_started",
       priority: priority || null,
+      archived: archived ?? false,
     },
     include: {
       project: { select: { id: true, name: true } },
