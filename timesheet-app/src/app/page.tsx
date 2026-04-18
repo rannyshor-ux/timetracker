@@ -180,7 +180,11 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-800">
-            {projects.map((project: any) => {
+            {[...projects].sort((a: any, b: any) => {
+              const hoursA = a.phases.flatMap((ph: any) => ph.timeEntries).reduce((s: number, e: any) => s + e.hours, 0);
+              const hoursB = b.phases.flatMap((ph: any) => ph.timeEntries).reduce((s: number, e: any) => s + e.hours, 0);
+              return hoursB - hoursA;
+            }).map((project: any) => {
               const phases: PhaseWithEntries[] = project.phases;
               const actualHours = phases
                 .flatMap((ph) => ph.timeEntries)
