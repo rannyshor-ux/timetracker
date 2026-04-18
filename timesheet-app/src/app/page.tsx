@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { decimalToHMS } from "@/lib/timeFormat";
-import WeeklyHoursCard from "./components/WeeklyHoursCard";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +85,7 @@ function PhaseProgressBar({ phase }: { phase: PhaseWithEntries }) {
 }
 
 export default async function DashboardPage() {
-  const [projects, employees, recentEntries] = await Promise.all([
+  const [projects, employees] = await Promise.all([
     (prisma.project as any).findMany({
       include: {
         phases: {
@@ -96,16 +95,18 @@ export default async function DashboardPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.employee.findMany(),
-    prisma.timeEntry.findMany({
-      where: {
-        date: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      },
+    prisma.employee.findMany({
+      include: { timeEntries: { select: { hours: true } } },
+      orderBy: { name: "asc" },
     }),
   ]);
 
-  const activeProjects = projects.filter((p: any) => p.status === "active");
-  const totalHoursWeek = recentEntries.reduce((s: number, e: any) => s + e.hours, 0);
+  const employeeHours = (employees as any[]).map((emp) => ({
+    id: emp.id,
+    name: emp.name,
+    total: (emp.timeEntries as { hours: number }[]).reduce((s, e) => s + e.hours, 0),
+  }));
+  const grandTotal = employeeHours.reduce((s, e) => s + e.total, 0);
 
   return (
     <div className="space-y-8">
@@ -123,14 +124,24 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
-        <StatCard label="שעות השבוע" value={decimalToHMS(totalHoursWeek)} unit="" />
-        <StatCard label="פרויקטים פעילים" value={String(activeProjects.length)} unit="" />
+      {/* Employee hours summary */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-800">
+          <h2 className="font-semibold text-gray-100">סך שעות לפי עובד</h2>
+        </div>
+        <div className="divide-y divide-gray-800">
+          {employeeHours.map((emp) => (
+            <div key={emp.id} className="px-6 py-3 flex items-center justify-between">
+              <span className="text-sm text-gray-300">{emp.name}</span>
+              <span className="text-sm font-semibold text-amber-400">{decimalToHMS(emp.total)}</span>
+            </div>
+          ))}
+          <div className="px-6 py-3 flex items-center justify-between bg-gray-800/50">
+            <span className="text-sm font-semibold text-gray-200">סה״כ</span>
+            <span className="text-base font-bold text-amber-400">{decimalToHMS(grandTotal)}</span>
+          </div>
+        </div>
       </div>
-
-      {/* Weekly hours per employee */}
-      <WeeklyHoursCard employees={employees} />
 
       {/* Projects */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
@@ -235,12 +246,3 @@ export default async function DashboardPage() {
   );
 }
 
-function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
-  return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 px-5 py-4">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-2xl font-bold text-gray-100 mt-1">{value}</p>
-      {unit && <p className="text-xs text-gray-500 mt-0.5">{unit}</p>}
-    </div>
-  );
-}
