@@ -84,7 +84,21 @@ function PhaseProgressBar({ phase }: { phase: PhaseWithEntries }) {
   );
 }
 
+function getWeekStart(): Date {
+  // Israel is UTC+2 (standard). Find this week's Sunday at 08:00 Israel time.
+  const ISRAEL_OFFSET = 2 * 3600000;
+  const now = new Date();
+  const israelNow = new Date(now.getTime() + ISRAEL_OFFSET);
+  const dayOfWeek = israelNow.getUTCDay(); // 0 = Sunday
+  const sunday = new Date(israelNow);
+  sunday.setUTCDate(israelNow.getUTCDate() - dayOfWeek);
+  sunday.setUTCHours(8, 0, 0, 0); // 08:00 Israel = 06:00 UTC
+  return new Date(sunday.getTime() - ISRAEL_OFFSET); // back to UTC
+}
+
 export default async function DashboardPage() {
+  const weekStart = getWeekStart();
+
   const [projects, employees] = await Promise.all([
     (prisma.project as any).findMany({
       include: {
@@ -96,7 +110,12 @@ export default async function DashboardPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.employee.findMany({
-      include: { timeEntries: { select: { hours: true } } },
+      include: {
+        timeEntries: {
+          select: { hours: true },
+          where: { date: { gte: weekStart } },
+        },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -127,7 +146,7 @@ export default async function DashboardPage() {
       {/* Employee hours summary */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-800">
-          <h2 className="font-semibold text-gray-100">סך שעות לפי עובד</h2>
+          <h2 className="font-semibold text-gray-100">שעות השבוע לפי עובד</h2>
         </div>
         <div className="divide-y divide-gray-800">
           {employeeHours.map((emp) => (
