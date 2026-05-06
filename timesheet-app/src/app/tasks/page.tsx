@@ -226,7 +226,7 @@ export default function TasksPage() {
     // Add columns for all existing projects
     for (const p of projects) {
       const colTasks = filtered.filter((t) => t.project?.id === p.id);
-      kanbanColumns.push({ key: String(p.id), label: p.name, projectId: String(p.id), tasks: colTasks });
+      if (colTasks.length > 0) kanbanColumns.push({ key: String(p.id), label: p.name, projectId: String(p.id), tasks: colTasks });
       seen.add(String(p.id));
     }
     // Add column for tasks without a project
@@ -507,7 +507,7 @@ export default function TasksPage() {
         /* Kanban board */
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "60vh" }}>
           {kanbanColumns.map((col) => (
-            <div key={col.key} className="flex-shrink-0 w-72">
+            <div key={col.key} className="flex-shrink-0 w-[432px]">
               {/* Column header */}
               <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
