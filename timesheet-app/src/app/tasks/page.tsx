@@ -22,12 +22,12 @@ type Task = {
 const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: string }> = {
   not_started: {
     label: "לא התחילה",
-    card: "border-gray-800 hover:border-gray-700",
+    card: "border-gray-700 hover:border-gray-600",
     select: "bg-gray-700 text-gray-300",
   },
   in_progress: {
     label: "בטיפול",
-    card: "border-blue-800/50 bg-blue-950/10",
+    card: "border-blue-800/60 bg-blue-950/20",
     select: "bg-blue-900/60 text-blue-300",
   },
   done: {
@@ -43,14 +43,15 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; card: string; select: s
 };
 
 const PRIORITY_CONFIG: Record<TaskPriority, { label: string; pill: string }> = {
-  to_handle: { label: "לטיפול",  pill: "bg-gray-700 text-gray-300" },
-  important:  { label: "חשוב",   pill: "bg-gray-700 text-gray-300" },
-  urgent:     { label: "דחוף",   pill: "bg-gray-700 text-gray-300" },
+  to_handle: { label: "לטיפול", pill: "bg-gray-700 text-gray-300" },
+  important:  { label: "חשוב",  pill: "bg-gray-700 text-gray-300" },
+  urgent:     { label: "דחוף",  pill: "bg-gray-700 text-gray-300" },
 };
+
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, important: 1, to_handle: 2 };
 
 const inputClass =
   "w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500";
-
 const optionClass = "bg-gray-800 text-gray-100";
 
 export default function TasksPage() {
@@ -62,7 +63,6 @@ export default function TasksPage() {
 
   const [filterStatus, setFilterStatus] = useState<"all" | TaskStatus>("all");
   const [filterPriority, setFilterPriority] = useState<"all" | TaskPriority>("all");
-  const [filterProject, setFilterProject] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("");
 
   const [showForm, setShowForm] = useState(false);
@@ -93,11 +93,11 @@ export default function TasksPage() {
     load(showArchive);
   }, [showArchive]);
 
-  function openNew() {
+  function openNew(presetProjectId?: string) {
     setEditing(null);
     setTitle("");
     setDescription("");
-    setProjectId("");
+    setProjectId(presetProjectId ?? "");
     setAssigneeId("");
     setDueDate("");
     setPriority("to_handle");
@@ -153,14 +153,10 @@ export default function TasksPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: task.title,
-        description: task.description ?? null,
-        projectId: task.project?.id ?? null,
-        assigneeId: task.assignee?.id ?? null,
-        dueDate: task.dueDate ?? null,
-        status: newStatus,
-        priority: task.priority ?? "to_handle",
-        archived: task.archived,
+        title: task.title, description: task.description ?? null,
+        projectId: task.project?.id ?? null, assigneeId: task.assignee?.id ?? null,
+        dueDate: task.dueDate ?? null, status: newStatus,
+        priority: task.priority ?? "to_handle", archived: task.archived,
       }),
     });
     load(showArchive);
@@ -171,14 +167,10 @@ export default function TasksPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: task.title,
-        description: task.description ?? null,
-        projectId: task.project?.id ?? null,
-        assigneeId: task.assignee?.id ?? null,
-        dueDate: task.dueDate ?? null,
-        status: task.status,
-        priority: newPriority,
-        archived: task.archived,
+        title: task.title, description: task.description ?? null,
+        projectId: task.project?.id ?? null, assigneeId: task.assignee?.id ?? null,
+        dueDate: task.dueDate ?? null, status: task.status,
+        priority: newPriority, archived: task.archived,
       }),
     });
     load(showArchive);
@@ -189,14 +181,10 @@ export default function TasksPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: task.title,
-        description: task.description ?? null,
-        projectId: task.project?.id ?? null,
-        assigneeId: task.assignee?.id ?? null,
-        dueDate: task.dueDate ?? null,
-        status: task.status,
-        priority: task.priority ?? "to_handle",
-        archived: !task.archived,
+        title: task.title, description: task.description ?? null,
+        projectId: task.project?.id ?? null, assigneeId: task.assignee?.id ?? null,
+        dueDate: task.dueDate ?? null, status: task.status,
+        priority: task.priority ?? "to_handle", archived: !task.archived,
       }),
     });
     load(showArchive);
@@ -213,14 +201,11 @@ export default function TasksPage() {
   const threeDaysFromNow = new Date(today);
   threeDaysFromNow.setDate(today.getDate() + 3);
 
-  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, important: 1, to_handle: 2 };
-
   const filtered = tasks
     .filter((t) => {
-      if (showArchive) return true; // in archive, show all without filters
+      if (showArchive) return true;
       if (filterStatus !== "all" && t.status !== filterStatus) return false;
       if (filterPriority !== "all" && t.priority !== filterPriority) return false;
-      if (filterProject && String(t.project?.id) !== filterProject) return false;
       if (filterAssignee && String(t.assignee?.id) !== filterAssignee) return false;
       return true;
     })
@@ -234,9 +219,127 @@ export default function TasksPage() {
       return da - db;
     });
 
+  // Group tasks by project for Kanban view
+  const kanbanColumns: { key: string; label: string; projectId?: string; tasks: Task[] }[] = [];
+  if (!showArchive) {
+    const seen = new Set<string>();
+    // Add columns for all existing projects
+    for (const p of projects) {
+      const colTasks = filtered.filter((t) => t.project?.id === p.id);
+      kanbanColumns.push({ key: String(p.id), label: p.name, projectId: String(p.id), tasks: colTasks });
+      seen.add(String(p.id));
+    }
+    // Add column for tasks without a project
+    const noProjectTasks = filtered.filter((t) => !t.project);
+    if (noProjectTasks.length > 0 || projects.length === 0) {
+      kanbanColumns.push({ key: "none", label: "ללא פרויקט", tasks: noProjectTasks });
+    }
+  }
+
   const activeCount = tasks.filter((t) => t.status === "not_started" || t.status === "in_progress").length;
   const blockedCount = tasks.filter((t) => t.status === "blocked").length;
   const urgentCount = tasks.filter((t) => t.priority === "urgent" && t.status !== "done").length;
+
+  function TaskCard({ task }: { task: Task }) {
+    const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.not_started;
+    const isDone = task.status === "done";
+    const p = (task.priority ?? "to_handle") as TaskPriority;
+    const pcfg = PRIORITY_CONFIG[p] ?? PRIORITY_CONFIG.to_handle;
+    const isHighPriority = (p === "urgent" || p === "important") && !isDone && !showArchive;
+
+    const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
+    const isOverdue = dueDateObj && dueDateObj < today && !isDone;
+    const isDueSoon = dueDateObj && dueDateObj <= threeDaysFromNow && dueDateObj >= today && !isDone;
+
+    return (
+      <div
+        className={`rounded-xl border transition-colors ${cfg.card} ${
+          isHighPriority ? "bg-amber-950/30 border-amber-700/50" : "bg-gray-900"
+        }`}
+      >
+        <div className="px-4 py-3 space-y-2">
+          {/* Title + description */}
+          <div>
+            <p className={`text-sm font-medium leading-snug ${isDone ? "line-through text-gray-500" : isHighPriority ? "text-amber-100" : "text-gray-100"}`}>
+              {task.title}
+            </p>
+            {task.description && (
+              <p className={`text-xs mt-0.5 leading-relaxed ${isDone ? "line-through text-gray-600" : "text-gray-400"}`}>
+                {task.description}
+              </p>
+            )}
+          </div>
+
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {task.assignee && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-900/40 text-amber-400">{task.assignee.name}</span>
+            )}
+            {dueDateObj && (
+              <span className={`text-xs ${isOverdue || isDueSoon ? "text-red-400" : "text-gray-500"}`}>
+                {isOverdue ? "⚠ " : ""}עד {dueDateObj.toLocaleDateString("he-IL")}
+              </span>
+            )}
+          </div>
+
+          {/* Controls row */}
+          {!showArchive && (
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={task.status}
+                  onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
+                  className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none cursor-pointer ${cfg.select}`}
+                >
+                  <option value="not_started" className={optionClass}>לא התחילה</option>
+                  <option value="in_progress" className={optionClass}>בטיפול</option>
+                  <option value="done" className={optionClass}>הושלמה</option>
+                  <option value="blocked" className={optionClass}>חסומה</option>
+                </select>
+
+                <select
+                  value={p}
+                  onChange={(e) => handlePriorityChange(task, e.target.value as TaskPriority)}
+                  className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none cursor-pointer ${pcfg.pill}`}
+                >
+                  <option value="to_handle" className={optionClass}>לטיפול</option>
+                  <option value="important" className={optionClass}>חשוב</option>
+                  <option value="urgent" className={optionClass}>דחוף</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isDone && (
+                  <button onClick={() => handleArchive(task)} title="העבר לארכיון"
+                    className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+                    ארכיון
+                  </button>
+                )}
+                <button onClick={() => openEdit(task)} className="text-gray-400 hover:text-gray-100 text-xs transition-colors">
+                  עריכה
+                </button>
+                <button onClick={() => handleDelete(task.id)} className="text-red-500 hover:text-red-400 text-xs transition-colors">
+                  מחק
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Archive view controls */}
+          {showArchive && (
+            <div className="flex justify-end gap-3">
+              <button onClick={() => handleArchive(task)} className="text-amber-400 hover:text-amber-300 text-xs transition-colors">
+                שחזר
+              </button>
+              <button onClick={() => handleDelete(task.id)} className="text-red-500 hover:text-red-400 text-xs transition-colors">
+                מחק
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -259,7 +362,7 @@ export default function TasksPage() {
         </div>
         {!showArchive && (
           <button
-            onClick={openNew}
+            onClick={() => openNew()}
             className="bg-amber-500 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-400 transition-colors"
           >
             + משימה חדשה
@@ -277,25 +380,14 @@ export default function TasksPage() {
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-400">כותרת *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="כותרת קצרה למשימה"
-                  className={inputClass}
-                  autoFocus
-                />
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                  placeholder="כותרת קצרה למשימה" className={inputClass} autoFocus />
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-400">תיאור (אופציונלי)</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  placeholder="פרטים נוספים על המשימה..."
-                  className={inputClass + " resize-none"}
-                />
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                  rows={3} placeholder="פרטים נוספים על המשימה..." className={inputClass + " resize-none"} />
               </div>
 
               <div className="space-y-1.5">
@@ -329,12 +421,7 @@ export default function TasksPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-400">תאריך סיום רצוי (אופציונלי)</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className={inputClass}
-                />
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
               </div>
 
               {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -389,16 +476,9 @@ export default function TasksPage() {
               <option value="">כל העובדים</option>
               {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
             </select>
-
-            <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-100 focus:outline-none focus:border-amber-500">
-              <option value="">כל הפרויקטים</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
           </>
         )}
 
-        {/* Archive toggle */}
         <button
           onClick={() => setShowArchive(!showArchive)}
           className={`mr-auto px-3 py-1.5 text-sm rounded-lg border transition-colors ${
@@ -411,118 +491,57 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {/* Task List */}
+      {/* Content */}
       {loading ? (
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">טוען...</div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">
-          <p>{showArchive ? "הארכיון ריק" : "אין משימות להצגה"}</p>
-          {!showArchive && (
-            <button onClick={openNew} className="text-amber-400 underline text-sm mt-2">הוסף משימה חדשה</button>
-          )}
-        </div>
+      ) : showArchive ? (
+        /* Archive — flat list */
+        filtered.length === 0 ? (
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">הארכיון ריק</div>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((task) => <TaskCard key={task.id} task={task} />)}
+          </div>
+        )
       ) : (
-        <div className="space-y-2">
-          {filtered.map((task) => {
-            const cfg = STATUS_CONFIG[task.status] ?? STATUS_CONFIG.not_started;
-            const isDone = task.status === "done";
-            const p = (task.priority ?? "to_handle") as TaskPriority;
-            const pcfg = PRIORITY_CONFIG[p] ?? PRIORITY_CONFIG.to_handle;
-            const isHighPriority = (p === "urgent" || p === "important") && !isDone && !showArchive;
-
-            const dueDateObj = task.dueDate ? new Date(task.dueDate) : null;
-            const isOverdue = dueDateObj && dueDateObj < today && !isDone;
-            const isDueSoon = dueDateObj && dueDateObj <= threeDaysFromNow && dueDateObj >= today && !isDone;
-
-            return (
-              <div
-                key={task.id}
-                className={`rounded-xl border transition-colors ${cfg.card} ${
-                  isHighPriority ? "bg-amber-950/30 border-amber-700/50" : "bg-gray-900"
-                }`}
-              >
-                <div className="px-5 py-4 flex items-start gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium leading-relaxed ${isDone ? "line-through text-gray-500" : isHighPriority ? "text-amber-100" : "text-gray-100"}`}>
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className={`text-xs mt-0.5 leading-relaxed ${isDone ? "line-through text-gray-600" : "text-gray-400"}`}>
-                        {task.description}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                      {task.assignee && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-900/40 text-amber-400">{task.assignee.name}</span>
-                      )}
-                      {task.project && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/50 text-blue-400">{task.project.name}</span>
-                      )}
-                      {dueDateObj && (
-                        <span className={`text-xs ${isOverdue || isDueSoon ? "text-red-400" : "text-gray-500"}`}>
-                          {isOverdue ? "⚠ " : ""}עד {dueDateObj.toLocaleDateString("he-IL")}
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-600">נוצר {new Date(task.createdAt).toLocaleDateString("he-IL")}</span>
-                    </div>
-                  </div>
-
-                  {!showArchive && (
-                    <>
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task, e.target.value as TaskStatus)}
-                        className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${cfg.select}`}
-                      >
-                        <option value="not_started" className={optionClass}>לא התחילה</option>
-                        <option value="in_progress" className={optionClass}>בטיפול</option>
-                        <option value="done" className={optionClass}>הושלמה</option>
-                        <option value="blocked" className={optionClass}>חסומה</option>
-                      </select>
-
-                      <select
-                        value={p}
-                        onChange={(e) => handlePriorityChange(task, e.target.value as TaskPriority)}
-                        className={`text-xs px-2 py-1 rounded-full border-0 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer ${pcfg.pill}`}
-                      >
-                        <option value="to_handle" className={optionClass}>לטיפול</option>
-                        <option value="important" className={optionClass}>חשוב</option>
-                        <option value="urgent" className={optionClass}>דחוף</option>
-                      </select>
-                    </>
-                  )}
-
-                  <div className="flex gap-3 flex-shrink-0 items-center">
-                    {isDone && !showArchive && (
-                      <button
-                        onClick={() => handleArchive(task)}
-                        title="העבר לארכיון"
-                        className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
-                      >
-                        ארכיון
-                      </button>
-                    )}
-                    {showArchive && (
-                      <button
-                        onClick={() => handleArchive(task)}
-                        className="text-amber-400 hover:text-amber-300 text-xs transition-colors"
-                      >
-                        שחזר
-                      </button>
-                    )}
-                    {!showArchive && (
-                      <button onClick={() => openEdit(task)} className="text-gray-400 hover:text-gray-100 text-xs transition-colors">
-                        עריכה
-                      </button>
-                    )}
-                    <button onClick={() => handleDelete(task.id)} className="text-red-500 hover:text-red-400 text-xs transition-colors">
-                      מחק
-                    </button>
-                  </div>
+        /* Kanban board */
+        <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: "60vh" }}>
+          {kanbanColumns.map((col) => (
+            <div key={col.key} className="flex-shrink-0 w-72">
+              {/* Column header */}
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-200">{col.label}</h3>
+                  <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded-full">
+                    {col.tasks.length}
+                  </span>
                 </div>
+                <button
+                  onClick={() => openNew(col.projectId)}
+                  className="text-gray-500 hover:text-amber-400 text-lg leading-none transition-colors"
+                  title="הוסף משימה לפרויקט זה"
+                >
+                  +
+                </button>
               </div>
-            );
-          })}
+
+              {/* Column body */}
+              <div className="bg-gray-800/30 rounded-xl p-2 space-y-2 min-h-32">
+                {col.tasks.length === 0 ? (
+                  <div className="text-center text-gray-600 text-xs py-8">אין משימות</div>
+                ) : (
+                  col.tasks.map((task) => <TaskCard key={task.id} task={task} />)
+                )}
+              </div>
+            </div>
+          ))}
+
+          {kanbanColumns.length === 0 && (
+            <div className="flex-1 bg-gray-900 rounded-xl border border-gray-800 p-12 text-center text-gray-500">
+              <p>אין משימות להצגה</p>
+              <button onClick={() => openNew()} className="text-amber-400 underline text-sm mt-2">הוסף משימה חדשה</button>
+            </div>
+          )}
         </div>
       )}
     </div>
