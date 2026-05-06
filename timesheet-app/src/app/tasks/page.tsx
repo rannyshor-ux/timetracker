@@ -234,6 +234,8 @@ export default function TasksPage() {
     if (noProjectTasks.length > 0 || projects.length === 0) {
       kanbanColumns.push({ key: "none", label: "ללא פרויקט", tasks: noProjectTasks });
     }
+    // Sort columns by task count descending (most tasks first = rightmost in RTL)
+    kanbanColumns.sort((a, b) => b.tasks.length - a.tasks.length);
   }
 
   const activeCount = tasks.filter((t) => t.status === "not_started" || t.status === "in_progress").length;
